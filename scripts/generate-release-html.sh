@@ -37,7 +37,13 @@ JIRA_TICKETS=$(grep -oE '[A-Z]+-[0-9]+' "$EXTRACTED_INFO_FILE" | grep -v "PAYM-0
 TICKET_ROWS=""
 while read -r ticket; do
   if [[ -n "$ticket" ]]; then
-    TICKET_ROWS+="<tr><td><a href='https://anywhereworks.atlassian.net/browse/$ticket'>https://anywhereworks.atlassian.net/browse/$ticket</a></td></tr>"
+    TICKET_ROWS+="<tr>
+                        <td>
+                          <ac:structured-macro ac:name="jira">
+                            <ac:parameter ac:name="key">${ticket}</ac:parameter>
+                          </ac:structured-macro>
+                        </td>
+                      </tr>"
   fi
 done <<< "$JIRA_TICKETS"
 

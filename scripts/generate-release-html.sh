@@ -37,13 +37,7 @@ JIRA_TICKETS=$(grep -oE '[A-Z]+-[0-9]+' "$EXTRACTED_INFO_FILE" | grep -v "PAYM-0
 TICKET_ROWS=""
 while read -r ticket; do
   if [[ -n "$ticket" ]]; then
-    TICKET_ROWS+="<tr>
-                        <td>
-                          <a href="https://anywhereworks.atlassian.net/browse/${ticket}">
-                            https://anywhereworks.atlassian.net/browse/${ticket}
-                          </a>
-                        </td>
-                      </tr>"
+    TICKET_ROWS+="<tr><td><a href='https://anywhereworks.atlassian.net/browse/$ticket'>https://anywhereworks.atlassian.net/browse/$ticket</a></td></tr>"
   fi
 done <<< "$JIRA_TICKETS"
 
@@ -62,12 +56,10 @@ PAYM_0_CONTENT+="</ul>"
 # 4. Construct Final HTML
 {
   echo "<ul>"
-  echo "  <li><p>Associated PR: <a href='$PR_LINK'>LINK</a></p><p>
-    <p>Associated PR:<a href="$PR_LINK">$PR_LINK</a></p>
-  </li>"
+  echo "  <li>Associated PR: <a href='$PR_LINK'>LINK</a></li>"
   echo "  <li>Safe to rollback: <strong>YES</strong><small>(Note: <span style='color: rgb(255,0,0);'><strong>Change to NO</strong></span> if any database migrations or breaking API changes are included)</small></li>"
   echo "</ul>"
-  echo "<table><thead><tr><th align="center"><strong>Title</strong></th></tr></thead><tbody>"
+  echo "<table><thead><tr><th style="text-align: center"><strong>Title</strong></th></tr></thead><tbody>"
   echo "$TICKET_ROWS"
   echo "<tr><td>$PAYM_0_CONTENT</td></tr>"
   echo "</tbody></table>"

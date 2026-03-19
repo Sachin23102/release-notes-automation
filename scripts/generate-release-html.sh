@@ -28,6 +28,8 @@ if [[ "$IS_HOTFIX" == "true" ]]; then
   PAGE_TITLE="$RELEASE_DATE - Hotfix"
 fi
 
+echo "extracted info file: $EXTRACTED_INFO_FILE"
+
 # 2. Extract standard Jira tickets (excluding PAYM-0)
 JIRA_TICKETS=$(grep -oE '[A-Z]+-[0-9]+' "$EXTRACTED_INFO_FILE" | grep -v "PAYM-0" | sort -u || true)
 

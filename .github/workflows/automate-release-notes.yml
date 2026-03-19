@@ -22,7 +22,7 @@ jobs:
         id: batch-info
         env:
           JIRA_USERNAME: ${{ secrets.CONFLUENCE_USERNAME }}
-          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_TOKEN: ${{ secrets.CONFLUENCE_TOKEN }}
         run: |
           # 1. Extract Jira IDs from git history
           BASE_SHA=${{ github.event.pull_request.base.sha }}

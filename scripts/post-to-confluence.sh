@@ -97,6 +97,8 @@ if [[ -z "$YEAR_ID" ]]; then
   YEAR_ID=$(create_page "$YEAR" "$REPO_ID")
 fi
 
+echo "✅ Year folder ID: $YEAR_ID"
+
 # 2. Ensure Month folder exists
 echo "🔍 Checking Month folder: $MONTH"
 MONTH_ID=$(get_page_id "$MONTH" "$YEAR_ID")

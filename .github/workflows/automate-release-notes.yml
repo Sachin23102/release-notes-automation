@@ -116,7 +116,7 @@ jobs:
           get_page_id() {
             local title="$1"
             local parent_id="$2"
-            local query="space=${CONFLUENCE_SPACE_KEY} AND type=page AND title=\"${title}\" AND parent=${parent_id}"
+            local query="space=${CONFLUENCE_SPACE_KEY} AND type=page AND title=\"${title}\" AND ancestor=${parent_id}"
             local encoded_query=$(printf '%s' "$query" | jq -sRr @uri)
             local url="${CONFLUENCE_BASE_URL}/rest/api/content/search?cql=${encoded_query}"
         
@@ -189,18 +189,35 @@ jobs:
               -H "Content-Type: application/json" \
               -d "$(jq -n --arg title "$PAGE_TITLE" --arg space "$CONFLUENCE_SPACE_KEY" --arg parent "$FINAL_PARENT_ID" --arg html "$HTML_CONTENT" \
                 '{type: "page", title: $title, space: {key: $space}, ancestors: [{id: $parent}], body: {storage: {value: $html, representation: "storage"}}}')")
-            log_api_call "POST (Final Page)" "$url" "$http_status" "$(cat $response_file)"
+            response_body=$(cat "$response_file")
+            log_api_call "POST (Final Page)" "$url" "$http_status" "$response_body"
+            
+            if [[ "$http_status" -lt 200 || "$http_status" -gt 299 ]]; then
+              echo "❌ Failed to create final release page. Status: $http_status"
+              exit 1
+            fi
           else
             echo "📝 Updating existing release page ID: ${PAGE_ID}"
-            # Log the GET for versioning
-            GET_RESPONSE=$(curl -s -u "${CONFLUENCE_USERNAME}:${CONFLUENCE_TOKEN}" \
-              "${CONFLUENCE_BASE_URL}/rest/api/content/${PAGE_ID}?expand=version,body.storage")
             
-            CUR_VER=$(echo "$GET_RESPONSE" | jq -r '.version.number')
-            PREV_CONTENT=$(echo "$GET_RESPONSE" | jq -r '.body.storage.value')
+            # 1. Get current version and content
+            url="${CONFLUENCE_BASE_URL}/rest/api/content/${PAGE_ID}?expand=version,body.storage"
+            response_file=$(mktemp)
+            http_status=$(curl -s -u "${CONFLUENCE_USERNAME}:${CONFLUENCE_TOKEN}" \
+              -w "%{http_code}" -o "$response_file" -X GET "$url")
+            get_response=$(cat "$response_file")
+            log_api_call "GET (Fetch Version)" "$url" "$http_status" "$get_response"
+
+            if [[ "$http_status" -ne 200 ]]; then
+              echo "❌ Failed to fetch current page version. Status: $http_status"
+              exit 1
+            fi
+            
+            CUR_VER=$(echo "$get_response" | jq -r '.version.number')
+            PREV_CONTENT=$(echo "$get_response" | jq -r '.body.storage.value')
             NEXT_VER=$((CUR_VER + 1))
             UPDATED_CONTENT="$HTML_CONTENT<hr/><br/>$PREV_CONTENT"
             
+            # 2. Perform the update
             url="${CONFLUENCE_BASE_URL}/rest/api/content/${PAGE_ID}"
             response_file=$(mktemp)
             http_status=$(curl -s -u "${CONFLUENCE_USERNAME}:${CONFLUENCE_TOKEN}" \
@@ -208,5 +225,11 @@ jobs:
               -H "Content-Type: application/json" \
               -d "$(jq -n --arg title "$PAGE_TITLE" --arg html "$UPDATED_CONTENT" --argjson ver "$NEXT_VER" \
                 '{type: "page", title: $title, version: {number: $ver}, body: {storage: {value: $html, representation: "storage"}}}')")
-            log_api_call "PUT (Update Page)" "$url" "$http_status" "$(cat $response_file)"
+            put_response=$(cat "$response_file")
+            log_api_call "PUT (Update Page)" "$url" "$http_status" "$put_response"
+
+            if [[ "$http_status" -lt 200 || "$http_status" -gt 299 ]]; then
+              echo "❌ Failed to update release page. Status: $http_status"
+              exit 1
+            fi
           fi

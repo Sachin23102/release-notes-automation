@@ -38,7 +38,7 @@ log_api_call() {
 get_page_id() {
   local title="$1"
   local parent_id="$2"
-  local query="space=${SPACE_KEY} AND type=page AND title=\"${title}\" AND ancestor=${parent_id}"
+  local query="space=${SPACE_KEY} AND type=page AND title=\"${title}\" AND parent=${parent_id}"
   local encoded_query=$(printf '%s' "$query" | jq -sRr @uri)
   local url="${CONFLUENCE_BASE_URL}/rest/api/content/search?cql=${encoded_query}"
 

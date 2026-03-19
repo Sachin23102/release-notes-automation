@@ -39,13 +39,10 @@ while read -r ticket; do
   if [[ -n "$ticket" ]]; then
     TICKET_ROWS+="<tr>
                         <td>
-                          <ac:structured-macro ac:name="jira">
-                            <ac:parameter ac:name="key">${ticket}</ac:parameter>
-                          </ac:structured-macro>
+                          <a href="https://anywhereworks.atlassian.net/browse/${ticket}">
+                            https://anywhereworks.atlassian.net/browse/${ticket}
+                          </a>
                         </td>
-                        <p><a href="https://anywhereworks.atlassian.net/browse/${ticket}">
-                                     https://anywhereworks.atlassian.net/browse/${ticket}
-                                   </a></p>
                       </tr>"
   fi
 done <<< "$JIRA_TICKETS"

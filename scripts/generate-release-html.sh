@@ -28,7 +28,7 @@ if [[ "$IS_HOTFIX" == "true" ]]; then
   PAGE_TITLE="$RELEASE_DATE - Hotfix"
 fi
 
-echo "extracted info file:"
+echo "extracted info file: - "
 cat "$EXTRACTED_INFO_FILE"
 
 # 2. Extract standard Jira tickets (excluding PAYM-0)

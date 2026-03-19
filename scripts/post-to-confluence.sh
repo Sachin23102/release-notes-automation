@@ -7,6 +7,8 @@ set -euo pipefail
 SPACE_KEY="$1"
 YEAR="$2"
 MONTH="$3"
+# Convert MONTH to first 3 letters (e.g., January -> Jan)
+MONTH=$(echo "$MONTH" | cut -c 1-3)
 PAGE_TITLE="$4"
 HTML_FILE="$5"
 REPO_ID="$6" # Root folder ID for this repo
@@ -94,6 +96,8 @@ YEAR_ID=$(get_page_id "$YEAR" "$REPO_ID")
 if [[ -z "$YEAR_ID" ]]; then
   YEAR_ID=$(create_page "$YEAR" "$REPO_ID")
 fi
+
+echo "✅ Year folder ID: $YEAR_ID"
 
 # 2. Ensure Month folder exists
 echo "🔍 Checking Month folder: $MONTH"

@@ -52,9 +52,10 @@ PAYM_0_CONTENT+="</ul>"
 
 # 4. Construct Final HTML
 {
-  echo "<h1>$RELEASE_DATE</h1>"
-  echo "<p>Associated PR: <a href='$PR_LINK'>$PR_LINK</a></p>"
-  echo "<p>Safe to rollback: <strong>YES</strong> <span style='color: rgb(255,0,0);'><strong>(Note: Change to NO if any database migrations or breaking API changes are included)</strong></span></p>"
+  echo "<ul>"
+  echo "  <li>Associated PR: <a href='$PR_LINK'>LINK</a></li>"
+  echo "  <li>Safe to rollback: <strong>YES</strong><br/><small>(Note: <span style='color: rgb(255,0,0);'><strong>Change to NO</strong></span> if any database migrations or breaking API changes are included)</small></li>"
+  echo "</ul>"
   echo "<table><thead><tr><th>Title</th></tr></thead><tbody>"
   echo "$TICKET_ROWS"
   echo "<tr><td>$PAYM_0_CONTENT</td></tr>"

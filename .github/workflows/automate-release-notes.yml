@@ -20,6 +20,9 @@ jobs:
 
       - name: Extract and Generate Release HTML
         id: batch-info
+        env:
+          JIRA_USERNAME: ${{ secrets.CONFLUENCE_USERNAME }}
+          JIRA_TOKEN: ${{ secrets.CONFLUENCE_TOKEN }}
         run: |
           # 1. Extract Jira IDs from git history
           BASE_SHA=${{ github.event.pull_request.base.sha }}
@@ -48,5 +51,3 @@ jobs:
             "${{ steps.batch-info.outputs.page_title }}" \
             confluence_body.html \
             "1475641416"
-
-

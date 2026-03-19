@@ -34,10 +34,33 @@ cat "$EXTRACTED_INFO_FILE"
 # 2. Extract standard Jira tickets (excluding PAYM-0)
 JIRA_TICKETS=$(grep -oE '[A-Z]+-[0-9]+' "$EXTRACTED_INFO_FILE" | grep -v "PAYM-0" | sort -u || true)
 
+# Helper to fetch Jira ticket summary
+fetch_jira_summary() {
+  local ticket_id="$1"
+  if [[ -z "${JIRA_USERNAME:-}" ]] || [[ -z "${JIRA_TOKEN:-}" ]]; then
+    echo "$ticket_id"
+    return
+  fi
+
+  local response
+  response=$(curl -s -u "${JIRA_USERNAME}:${JIRA_TOKEN}" \
+    "https://anywhereworks.atlassian.net/rest/api/2/issue/${ticket_id}?fields=summary")
+
+  local summary
+  summary=$(echo "$response" | jq -r '.fields.summary // empty')
+
+  if [[ -n "$summary" && "$summary" != "null" ]]; then
+    echo "[$ticket_id] $summary"
+  else
+    echo "$ticket_id"
+  fi
+}
+
 TICKET_ROWS=""
 while read -r ticket; do
   if [[ -n "$ticket" ]]; then
-    TICKET_ROWS+="<tr><td><a href='https://anywhereworks.atlassian.net/browse/$ticket'>https://anywhereworks.atlassian.net/browse/$ticket</a></td></tr>"
+    SUMMARY=$(fetch_jira_summary "$ticket")
+    TICKET_ROWS+="<tr><td><a href='https://anywhereworks.atlassian.net/browse/$ticket'>$SUMMARY</a></td></tr>"
   fi
 done <<< "$JIRA_TICKETS"
 
@@ -72,4 +95,3 @@ echo "month=$MONTH" >> "$GITHUB_OUTPUT"
 echo "page_title=$PAGE_TITLE" >> "$GITHUB_OUTPUT"
 
 echo "✅ Generated confluence_body.html and workflow outputs."
-

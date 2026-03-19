@@ -50,7 +50,7 @@ fetch_jira_summary() {
   summary=$(echo "$response" | jq -r '.fields.summary // empty')
 
   if [[ -n "$summary" && "$summary" != "null" ]]; then
-    echo "[$ticket_id] $summary"
+    echo "$ticket_id - $summary"
   else
     echo "$ticket_id"
   fi
@@ -67,14 +67,17 @@ done <<< "$JIRA_TICKETS"
 # 3. Extract all PAYM-0 descriptions
 PAYM_0_LIST=$(grep "\[PAYM-0\]" "$EXTRACTED_INFO_FILE" | sed 's/- \[PAYM-0\] //' | sed 's/ (\[#.*\])//' || true)
 
-PAYM_0_CONTENT="<strong>PAYM-0 Summary:</strong><ul>"
-while read -r line; do
-  if [[ -n "$line" ]]; then
-    CLEAN_LINE=$(echo "$line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-    PAYM_0_CONTENT+="<li>$CLEAN_LINE</li>"
-  fi
-done <<< "$PAYM_0_LIST"
-PAYM_0_CONTENT+="</ul>"
+PAYM_0_CONTENT=""
+if [[ -n "$PAYM_0_LIST" ]]; then
+  PAYM_0_CONTENT="<strong>PAYM-0 Summary:</strong><ul>"
+  while read -r line; do
+    if [[ -n "$line" ]]; then
+      CLEAN_LINE=$(echo "$line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+      PAYM_0_CONTENT+="<li>$CLEAN_LINE</li>"
+    fi
+  done <<< "$PAYM_0_LIST"
+  PAYM_0_CONTENT+="</ul>"
+fi
 
 # 4. Construct Final HTML
 {
@@ -82,9 +85,11 @@ PAYM_0_CONTENT+="</ul>"
   echo "  <li>Associated PR: <a href='$PR_LINK'>LINK</a></li>"
   echo "  <li>Safe to rollback: <strong>YES</strong><small>(Note: <span style='color: rgb(255,0,0);'><strong>Change to NO</strong></span> if any database migrations or breaking API changes are included)</small></li>"
   echo "</ul>"
-  echo "<table><thead><tr><th style="text-align: center"><strong>Title</strong></th></tr></thead><tbody>"
+  echo "<table><thead><tr><th style=\"text-align: center\"><strong>Title</strong></th></tr></thead><tbody>"
   echo "$TICKET_ROWS"
-  echo "<tr><td>$PAYM_0_CONTENT</td></tr>"
+  if [[ -n "$PAYM_0_CONTENT" ]]; then
+    echo "<tr><td>$PAYM_0_CONTENT</td></tr>"
+  fi
   echo "</tbody></table>"
 } > confluence_body.html
 

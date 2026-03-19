@@ -66,14 +66,7 @@ PAYM_0_CONTENT+="</ul>"
 {
   echo "<ul>"
   echo "  <li><p>Associated PR: <a href='$PR_LINK'>LINK</a></p><p>
-  Associated PR:
-    <ac:link>
-      <ri:url ri:value="$PR_LINK" />
-    </ac:link> </p>
-    <p>Associated PR:
-           <a href="$PR_LINK">
-             $PR_LINK
-           </a></p>
+    <p>Associated PR:<a href="$PR_LINK">$PR_LINK</a></p>
   </li>"
   echo "  <li>Safe to rollback: <strong>YES</strong><small>(Note: <span style='color: rgb(255,0,0);'><strong>Change to NO</strong></span> if any database migrations or breaking API changes are included)</small></li>"
   echo "</ul>"

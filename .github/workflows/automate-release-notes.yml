@@ -25,7 +25,7 @@ jobs:
           BASE_SHA=${{ github.event.pull_request.base.sha }}
           HEAD_SHA=${{ github.event.pull_request.head.sha }}
           echo "Using range: $BASE_SHA..$HEAD_SHA"
-          bash scripts/extract-jira-info.sh origin/main HEAD > extracted_info.md
+          bash scripts/extract-jira-info.sh "$BASE_SHA" "$HEAD_SHA" > extracted_info.md
 
           # 2. Process extracted info to generate Confluence HTML and metadata
           bash scripts/generate-release-html.sh \

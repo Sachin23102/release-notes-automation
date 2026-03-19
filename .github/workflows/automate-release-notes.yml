@@ -18,218 +18,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Extract Batch PR Information
+      - name: Extract and Generate Release HTML
         id: batch-info
         run: |
-          PR_LINK="${{ github.event.pull_request.html_url }}"
-          RELEASE_DATE=$(date +"%d %B")
-          YEAR=$(date +"%Y")
-          MONTH=$(date +"%B")
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          HEAD_REF="${{ github.event.pull_request.head.ref }}"
-
-          # Get commits from main..HEAD of the merged PR
-          # We use the PR body as originally planned to extract IDs, but for more accuracy 
-          # we can also parse the actual merged commits if they are available.
-          # The plan says: "Refactor to use git commit history as source of truth"
+          # 1. Extract Jira IDs from git history
           bash scripts/extract-jira-info.sh origin/main HEAD > extracted_info.md
 
-          # 1. Detect if hotfix
-          IS_HOTFIX="false"
-          if [[ "$PR_TITLE" =~ ^hotfix: ]] || [[ "$HEAD_REF" == *"hotfix/"* ]] || grep -iq "hotfix" extracted_info.md; then
-            IS_HOTFIX="true"
-          fi
+          # 2. Process extracted info to generate Confluence HTML and metadata
+          bash scripts/generate-release-html.sh \
+            "${{ github.event.pull_request.html_url }}" \
+            "${{ github.event.pull_request.title }}" \
+            "${{ github.event.pull_request.head.ref }}" \
+            extracted_info.md
 
-          # 2. Extract standard Jira tickets (excluding PAYM-0) from the generated info
-          JIRA_TICKETS=$(grep -oE '[A-Z]+-[0-9]+' extracted_info.md | grep -v "PAYM-0" | sort -u)
-
-          TICKET_ROWS=""
-          while read -r ticket; do
-            if [ -n "$ticket" ]; then
-              TICKET_ROWS+="<tr><td><a href='https://anywhereworks.atlassian.net/browse/$ticket'>https://anywhereworks.atlassian.net/browse/$ticket</a></td></tr>"
-            fi
-          done <<< "$JIRA_TICKETS"
-
-          # 3. Extract all PAYM-0 descriptions
-          PAYM_0_LIST=$(grep "\[PAYM-0\]" extracted_info.md | sed 's/- \[PAYM-0\] //' | sed 's/ (\[#.*\])//')
-
-          PAYM_0_CONTENT="<strong>PAYM-0 Summary:</strong><ul>"
-          while read -r line; do
-            if [ -n "$line" ]; then
-              CLEAN_LINE=$(echo "$line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-              PAYM_0_CONTENT+="<li>$CLEAN_LINE</li>"
-            fi
-          done <<< "$PAYM_0_LIST"
-          PAYM_0_CONTENT+="</ul>"
-
-          # 4. Construct the Final HTML for Confluence
-          CONFLUENCE_HTML="<h1>$RELEASE_DATE</h1>"
-          CONFLUENCE_HTML+="<p>Associated PR: <a href='$PR_LINK'>$PR_LINK</a></p>"
-          CONFLUENCE_HTML+="<p>Safe to rollback: <strong>YES</strong> <span style='color: rgb(255,0,0);'><strong>(Note: Change to NO if any database migrations or breaking API changes are included)</strong></span></p>"
-
-          CONFLUENCE_HTML+="<table><thead><tr><th>Title</th></tr></thead><tbody>"
-          CONFLUENCE_HTML+="$TICKET_ROWS"
-          CONFLUENCE_HTML+="<tr><td>$PAYM_0_CONTENT</td></tr>"
-          CONFLUENCE_HTML+="</tbody></table>"
-
-          PAGE_TITLE="$RELEASE_DATE"
-          if [ "$IS_HOTFIX" = "true" ]; then
-            PAGE_TITLE="$RELEASE_DATE - Hotfix"
-          fi
-
-          echo "$CONFLUENCE_HTML" > confluence_body.html
-          echo "date=$RELEASE_DATE" >> $GITHUB_OUTPUT
-          echo "year=$YEAR" >> $GITHUB_OUTPUT
-          echo "month=$MONTH" >> $GITHUB_OUTPUT
-          echo "page_title=$PAGE_TITLE" >> $GITHUB_OUTPUT
-
-      - name: Post to Confluence via API
+      - name: Post to Confluence
         env:
           CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
           CONFLUENCE_USERNAME: ${{ secrets.CONFLUENCE_USERNAME }}
           CONFLUENCE_TOKEN: ${{ secrets.CONFLUENCE_TOKEN }}
         run: |
-          : "${CONFLUENCE_BASE_URL:?Missing CONFLUENCE_BASE_URL secret}"
-          : "${CONFLUENCE_USERNAME:?Missing CONFLUENCE_USERNAME secret}"
-          : "${CONFLUENCE_TOKEN:?Missing CONFLUENCE_TOKEN secret}"
+          # 3. Use modular script to post/update Confluence
+          bash scripts/post-to-confluence.sh \
+            "Payments" \
+            "${{ steps.batch-info.outputs.year }}" \
+            "${{ steps.batch-info.outputs.month }}" \
+            "${{ steps.batch-info.outputs.page_title }}" \
+            confluence_body.html \
+            "740426212"
 
-          CONFLUENCE_SPACE_KEY="Payments"
-          YEAR="${{ steps.batch-info.outputs.year }}"
-          MONTH="${{ steps.batch-info.outputs.month }}"
-          PAGE_TITLE="${{ steps.batch-info.outputs.page_title }}"
-          HTML_CONTENT=$(cat confluence_body.html)
 
-          # Helper to log API responses
-          log_api_call() {
-            local method="$1"
-            local url="$2"
-            local status="$3"
-            local body="$4"
-            echo "--- Confluence API Call ---"
-            echo "Method: $method"
-            echo "URL: $url"
-            echo "Status: $status"
-            echo "Response: $body"
-            echo "--------------------------"
-          }
-
-          get_page_id() {
-            local title="$1"
-            local parent_id="$2"
-            local query="space=${CONFLUENCE_SPACE_KEY} AND type=page AND title=\"${title}\" AND ancestor=${parent_id}"
-            local encoded_query=$(printf '%s' "$query" | jq -sRr @uri)
-            local url="${CONFLUENCE_BASE_URL}/rest/api/content/search?cql=${encoded_query}"
-        
-            # Capture status and body
-            response_file=$(mktemp)
-            http_status=$(curl -s -u "${CONFLUENCE_USERNAME}:${CONFLUENCE_TOKEN}" \
-              -w "%{http_code}" -o "$response_file" \
-              "$url" -H "Content-Type: application/json")
-            response=$(cat "$response_file")
-            
-            log_api_call "GET (Search)" "$url" "$http_status" "$response"
-
-            if [[ "$http_status" -ne 200 ]]; then
-              echo "❌ Search failed with status $http_status"
-              exit 1
-            fi
-
-            echo "$response" | jq -r '.results[0].id // empty'
-          }
-
-          create_page() {
-            local title="$1"
-            local parent_id="$2"
-            local url="${CONFLUENCE_BASE_URL}/rest/api/content"
-            
-            response_file=$(mktemp)
-            http_status=$(curl -s -X POST -u "${CONFLUENCE_USERNAME}:${CONFLUENCE_TOKEN}" \
-              -w "%{http_code}" -o "$response_file" \
-              "$url" \
-              -H "Content-Type: application/json" \
-              -d "$(jq -n --arg title "$title" --arg space "$CONFLUENCE_SPACE_KEY" --arg parent "$parent_id" \
-                '{type: "page", title: $title, space: {key: $space}, ancestors: [{id: $parent}], body: {storage: {value: "", representation: "storage"}}}')")
-            response=$(cat "$response_file")
-
-            log_api_call "POST (Create)" "$url" "$http_status" "$response"
-            
-            local new_id=$(echo "$response" | jq -r '.id // empty')
-            if [[ "$http_status" -lt 200 || "$http_status" -gt 299 ]] || [ -z "$new_id" ] || [ "$new_id" == "null" ]; then
-              echo "❌ Failed to create page: $title"
-              exit 1
-            fi
-            echo "$new_id"
-          }
-
-          # 1. Use existing "fullpayments" folder ID
-          REPO_ID="740426212"
-
-          # 2. Ensure Year folder exists
-          YEAR_ID=$(get_page_id "$YEAR" "$REPO_ID")
-          if [ -z "$YEAR_ID" ]; then
-            YEAR_ID=$(create_page "$YEAR" "$REPO_ID")
-          fi
-
-          # 3. Ensure Month folder exists
-          MONTH_ID=$(get_page_id "$MONTH" "$YEAR_ID")
-          if [ -z "$MONTH_ID" ]; then
-            MONTH_ID=$(create_page "$MONTH" "$YEAR_ID")
-          fi
-
-          # 4. Create or Update Release Page
-          FINAL_PARENT_ID="$MONTH_ID"
-          PAGE_ID=$(get_page_id "$PAGE_TITLE" "$FINAL_PARENT_ID")
-
-          if [ -z "$PAGE_ID" ]; then
-            echo "📄 Creating new release page..."
-            url="${CONFLUENCE_BASE_URL}/rest/api/content"
-            response_file=$(mktemp)
-            http_status=$(curl -s -u "${CONFLUENCE_USERNAME}:${CONFLUENCE_TOKEN}" \
-              -w "%{http_code}" -o "$response_file" -X POST "$url" \
-              -H "Content-Type: application/json" \
-              -d "$(jq -n --arg title "$PAGE_TITLE" --arg space "$CONFLUENCE_SPACE_KEY" --arg parent "$FINAL_PARENT_ID" --arg html "$HTML_CONTENT" \
-                '{type: "page", title: $title, space: {key: $space}, ancestors: [{id: $parent}], body: {storage: {value: $html, representation: "storage"}}}')")
-            response_body=$(cat "$response_file")
-            log_api_call "POST (Final Page)" "$url" "$http_status" "$response_body"
-            
-            if [[ "$http_status" -lt 200 || "$http_status" -gt 299 ]]; then
-              echo "❌ Failed to create final release page. Status: $http_status"
-              exit 1
-            fi
-          else
-            echo "📝 Updating existing release page ID: ${PAGE_ID}"
-            
-            # 1. Get current version and content
-            url="${CONFLUENCE_BASE_URL}/rest/api/content/${PAGE_ID}?expand=version,body.storage"
-            response_file=$(mktemp)
-            http_status=$(curl -s -u "${CONFLUENCE_USERNAME}:${CONFLUENCE_TOKEN}" \
-              -w "%{http_code}" -o "$response_file" -X GET "$url")
-            get_response=$(cat "$response_file")
-            log_api_call "GET (Fetch Version)" "$url" "$http_status" "$get_response"
-
-            if [[ "$http_status" -ne 200 ]]; then
-              echo "❌ Failed to fetch current page version. Status: $http_status"
-              exit 1
-            fi
-            
-            CUR_VER=$(echo "$get_response" | jq -r '.version.number')
-            PREV_CONTENT=$(echo "$get_response" | jq -r '.body.storage.value')
-            NEXT_VER=$((CUR_VER + 1))
-            UPDATED_CONTENT="$HTML_CONTENT<hr/><br/>$PREV_CONTENT"
-            
-            # 2. Perform the update
-            url="${CONFLUENCE_BASE_URL}/rest/api/content/${PAGE_ID}"
-            response_file=$(mktemp)
-            http_status=$(curl -s -u "${CONFLUENCE_USERNAME}:${CONFLUENCE_TOKEN}" \
-              -w "%{http_code}" -o "$response_file" -X PUT "$url" \
-              -H "Content-Type: application/json" \
-              -d "$(jq -n --arg title "$PAGE_TITLE" --arg html "$UPDATED_CONTENT" --argjson ver "$NEXT_VER" \
-                '{type: "page", title: $title, version: {number: $ver}, body: {storage: {value: $html, representation: "storage"}}}')")
-            put_response=$(cat "$response_file")
-            log_api_call "PUT (Update Page)" "$url" "$http_status" "$put_response"
-
-            if [[ "$http_status" -lt 200 || "$http_status" -gt 299 ]]; then
-              echo "❌ Failed to update release page. Status: $http_status"
-              exit 1
-            fi
-          fi

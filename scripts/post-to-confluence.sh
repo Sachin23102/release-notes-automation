@@ -38,7 +38,8 @@ log_api_call() {
 get_page_id() {
   local title="$1"
   local parent_id="$2"
-  local query="space=${SPACE_KEY} AND type=page AND title=\"${title}\" AND parent=${parent_id}"
+  local type="${3:-page}"
+  local query="space=${SPACE_KEY} AND type=${type} AND title=\"${title}\" AND parent=${parent_id}"
   local encoded_query=$(printf '%s' "$query" | jq -sRr @uri)
   local url="${CONFLUENCE_BASE_URL}/rest/api/content/search?cql=${encoded_query}"
 
@@ -50,10 +51,18 @@ get_page_id() {
   local response
   response=$(cat "$response_file")
 
-  log_api_call "GET (Search)" "$url" "$http_status" "$response"
+#  log_api_call "GET (Search)" "$url" "$http_status" "$response"
 
   if [[ "$http_status" -ne 200 ]]; then
     echo "❌ Search for page '$title' failed with status $http_status"
+    exit 1
+  fi
+
+  local result_count
+  result_count=$(echo "$response" | jq '.results | length')
+
+  if [[ "$result_count" -gt 1 ]]; then
+    echo "❌ Multiple pages found with title '$title' under parent $parent_id. Please ensure page titles are unique."
     exit 1
   fi
 
@@ -92,7 +101,7 @@ create_page() {
 
 # 1. Ensure Year folder exists
 echo "🔍 Checking Year folder: $YEAR"
-YEAR_ID=$(get_page_id "$YEAR" "$REPO_ID")
+YEAR_ID=$(get_page_id "$YEAR" "$REPO_ID" "folder")
 if [[ -z "$YEAR_ID" ]]; then
   YEAR_ID=$(create_page "$YEAR" "$REPO_ID")
 fi
@@ -101,14 +110,14 @@ echo "✅ Year folder ID: $YEAR_ID"
 
 # 2. Ensure Month folder exists
 echo "🔍 Checking Month folder: $MONTH"
-MONTH_ID=$(get_page_id "$MONTH" "$YEAR_ID")
+MONTH_ID=$(get_page_id "$MONTH" "$YEAR_ID" "folder")
 if [[ -z "$MONTH_ID" ]]; then
   MONTH_ID=$(create_page "$MONTH" "$YEAR_ID")
 fi
 
 # 3. Create or Update Release Page
 echo "🔍 Checking Release page: $PAGE_TITLE"
-PAGE_ID=$(get_page_id "$PAGE_TITLE" "$MONTH_ID")
+PAGE_ID=$(get_page_id "$PAGE_TITLE" "$MONTH_ID" "page")
 
 if [[ -z "$PAGE_ID" ]]; then
   echo "📝 No existing page found. Creating new release page..."

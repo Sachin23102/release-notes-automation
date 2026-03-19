@@ -39,13 +39,10 @@ while read -r ticket; do
   if [[ -n "$ticket" ]]; then
     TICKET_ROWS+="<tr>
                         <td>
-                          <ac:structured-macro ac:name="jira">
-                            <ac:parameter ac:name="key">${ticket}</ac:parameter>
-                          </ac:structured-macro>
+                          <a href="https://anywhereworks.atlassian.net/browse/${ticket}">
+                            https://anywhereworks.atlassian.net/browse/${ticket}
+                          </a>
                         </td>
-                        <p><a href="https://anywhereworks.atlassian.net/browse/${ticket}">
-                                     https://anywhereworks.atlassian.net/browse/${ticket}
-                                   </a></p>
                       </tr>"
   fi
 done <<< "$JIRA_TICKETS"
@@ -66,14 +63,7 @@ PAYM_0_CONTENT+="</ul>"
 {
   echo "<ul>"
   echo "  <li><p>Associated PR: <a href='$PR_LINK'>LINK</a></p><p>
-  Associated PR:
-    <ac:link>
-      <ri:url ri:value="$PR_LINK" />
-    </ac:link> </p>
-    <p>Associated PR:
-           <a href="$PR_LINK">
-             $PR_LINK
-           </a></p>
+    <p>Associated PR:<a href="$PR_LINK">$PR_LINK</a></p>
   </li>"
   echo "  <li>Safe to rollback: <strong>YES</strong><small>(Note: <span style='color: rgb(255,0,0);'><strong>Change to NO</strong></span> if any database migrations or breaking API changes are included)</small></li>"
   echo "</ul>"

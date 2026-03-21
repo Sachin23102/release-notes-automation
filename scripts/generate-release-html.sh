@@ -26,19 +26,26 @@ JIRA_TICKETS=$(grep -oE '[A-Z]+-[0-9]+' extracted_info.md | grep -v "PAYM-0" | s
 
 # Helper to fetch Jira ticket summary
 fetch_jira_summary() {
+  echo "Using username: ${ATLASSIAN_USERNAME:-NOT_SET}"
+  echo "Token present: ${ATLASSIAN_API_TOKEN:+YES}"
+
   local ticket_id="$1"
   if [[ -z "${ATLASSIAN_USERNAME:-}" ]] || [[ -z "${ATLASSIAN_API_TOKEN:-}" ]]; then
+    echo "⚠️ Warning: ATLASSIAN_USERNAME or ATLASSIAN_API_TOKEN not set. Skipping API call for $ticket_id."
     echo "$ticket_id"
     return
   fi
 
+  echo "Fetching summary for $ticket_id from Jira API..."
   local response
   response=$(curl -s -u "${ATLASSIAN_USERNAME}:${ATLASSIAN_API_TOKEN}" \
     "https://anywhereworks.atlassian.net/rest/api/2/issue/${ticket_id}?fields=summary")
 
+  echo "API response for $ticket_id: $response"
   local summary
   summary=$(echo "$response" | jq -r '.fields.summary // empty')
 
+  echo "Extracted summary for $ticket_id: $summary"
   if [[ -n "$summary" && "$summary" != "null" ]]; then
     echo "$ticket_id - $summary"
   else

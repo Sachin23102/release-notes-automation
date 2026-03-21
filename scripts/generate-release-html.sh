@@ -27,13 +27,13 @@ JIRA_TICKETS=$(grep -oE '[A-Z]+-[0-9]+' extracted_info.md | grep -v "PAYM-0" | s
 # Helper to fetch Jira ticket summary
 fetch_jira_summary() {
   local ticket_id="$1"
-  if [[ -z "${JIRA_USERNAME:-}" ]] || [[ -z "${JIRA_TOKEN:-}" ]]; then
+  if [[ -z "${ATLASSIAN_USERNAME:-}" ]] || [[ -z "${ATLASSIAN_API_TOKEN:-}" ]]; then
     echo "$ticket_id"
     return
   fi
 
   local response
-  response=$(curl -s -u "${JIRA_USERNAME}:${JIRA_TOKEN}" \
+  response=$(curl -s -u "${ATLASSIAN_USERNAME}:${ATLASSIAN_API_TOKEN}" \
     "https://anywhereworks.atlassian.net/rest/api/2/issue/${ticket_id}?fields=summary")
 
   local summary

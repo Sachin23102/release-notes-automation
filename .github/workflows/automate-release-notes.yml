@@ -1,4 +1,4 @@
-name: Auto-Generate Release Notes (Promote PR)
+name: Auto-Generate Release Notes
 
 on:
   pull_request:
@@ -18,32 +18,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Extract and Generate Release HTML
+      - name: Extract Batch PR Information
         id: batch-info
-        run: |
-          # 1. Extract Jira IDs from git history
-          bash scripts/extract-jira-info.sh origin/main HEAD > extracted_info.md
-
-          # 2. Process extracted info to generate Confluence HTML and metadata
-          bash scripts/generate-release-html.sh \
-            "${{ github.event.pull_request.html_url }}" \
-            "${{ github.event.pull_request.title }}" \
-            "${{ github.event.pull_request.head.ref }}" \
-            extracted_info.md
-
-      - name: Post to Confluence
         env:
-          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
-          CONFLUENCE_USERNAME: ${{ secrets.CONFLUENCE_USERNAME }}
-          CONFLUENCE_TOKEN: ${{ secrets.CONFLUENCE_TOKEN }}
+          PR_LINK: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          # 3. Use modular script to post/update Confluence
-          bash scripts/post-to-confluence.sh \
-            "Payments" \
-            "${{ steps.batch-info.outputs.year }}" \
-            "${{ steps.batch-info.outputs.month }}" \
-            "${{ steps.batch-info.outputs.page_title }}" \
-            confluence_body.html \
-            "1475641416"
+          # Get commits from main..HEAD of the merged PR
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          bash scripts/extract-jira-info.sh "$BASE_SHA" "$HEAD_SHA" > extracted_info.md
 
+          # Generate the HTML body and page header title
+          bash scripts/generate-release-html.sh
 
+      - name: Post to Confluence via API
+        env:
+          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }} // set it here itself
+          ATLASSIAN_USERNAME: ${{ secrets.ATLASSIAN_USERNAME }}
+          ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_TOKEN }}
+          YEAR: ${{ steps.batch-info.outputs.year }}
+          MONTH: ${{ steps.batch-info.outputs.month }}
+          PAGE_TITLE: ${{ steps.batch-info.outputs.page_title }}
+          REPO_ID: "1475641416"
+        run: |
+          bash scripts/post-to-confluence.sh

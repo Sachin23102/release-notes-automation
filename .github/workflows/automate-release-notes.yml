@@ -38,8 +38,6 @@ jobs:
 
       - name: Post to Confluence via API
         env:
-          ATLASSIAN_USERNAME: ${{ secrets.ATLASSIAN_USERNAME }}
-          ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_TOKEN }}
           YEAR: ${{ steps.batch-info.outputs.year }}
           MONTH: ${{ steps.batch-info.outputs.month }}
           PAGE_TITLE: ${{ steps.batch-info.outputs.page_title }}

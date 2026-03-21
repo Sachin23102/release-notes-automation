@@ -4,7 +4,7 @@ set -euo pipefail
 # This script posts the generated release HTML to Confluence.
 # Renamed CONFLUENCE_TOKEN to ATLASSIAN_API_TOKEN as per guidelines.
 
-: "${CONFLUENCE_BASE_URL:?Missing CONFLUENCE_BASE_URL}"
+CONFLUENCE_BASE_URL="https://anywhereworks.atlassian.net/wiki"
 : "${ATLASSIAN_USERNAME:?Missing ATLASSIAN_USERNAME}"
 : "${ATLASSIAN_API_TOKEN:?Missing ATLASSIAN_API_TOKEN}"
 : "${YEAR:?Missing YEAR}"
@@ -36,11 +36,11 @@ get_page_id() {
     -H "Content-Type: application/json")
 
   local count
-  count=$(echo "$search_response" | jq -r '.results | length')
+  count=$(echo "$search_response" | jq '.results | length')
 
-  if [ "$count" -eq 0 ]; then
-    return # Not found, returns empty (important for folder creation checks)
-  elif [ "$count" -gt 1 ]; then
+  if [[ "$count" -eq 0 ]]; then
+    return
+  elif [[ "$count" -gt 1 ]]; then
     echo "❌ Error: Found more than one page with title \"$title\" and type \"$type\" under parent $parent_id. Count: $count"
     exit 1
   fi

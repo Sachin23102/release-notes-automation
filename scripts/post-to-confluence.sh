@@ -72,17 +72,17 @@ create_page() {
 }
 
 # 1. Ensure Year folder exists under "fullpayments"
-YEAR_ID=$(get_page_id "$YEAR" "$REPO_ID" "page")
+YEAR_ID=$(get_page_id "$YEAR" "$REPO_ID" "folder")
 if [ -z "$YEAR_ID" ]; then
   echo "📁 Creating year folder: $YEAR"
-  YEAR_ID=$(create_page "$YEAR" "$REPO_ID" "page")
+  YEAR_ID=$(create_page "$YEAR" "$REPO_ID" "folder")
 fi
 
 # 2. Ensure Month folder exists under Year folder
-MONTH_ID=$(get_page_id "$MONTH" "$YEAR_ID" "page")
+MONTH_ID=$(get_page_id "$MONTH" "$YEAR_ID" "folder")
 if [ -z "$MONTH_ID" ]; then
   echo "📁 Creating month folder: $MONTH"
-  MONTH_ID=$(create_page "$MONTH" "$YEAR_ID" "page")
+  MONTH_ID=$(create_page "$MONTH" "$YEAR_ID" "folder")
 fi
 
 # 3. Create or Update Release Page under Month folder

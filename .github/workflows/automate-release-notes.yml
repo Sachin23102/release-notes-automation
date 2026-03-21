@@ -35,7 +35,6 @@ jobs:
 
       - name: Post to Confluence via API
         env:
-          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }} // set it here itself
           ATLASSIAN_USERNAME: ${{ secrets.ATLASSIAN_USERNAME }}
           ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_TOKEN }}
           YEAR: ${{ steps.batch-info.outputs.year }}
